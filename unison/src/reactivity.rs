@@ -116,7 +116,7 @@ pub mod extra {
 macro_rules! bind {
 	( $( $name:ident ),* => $e:expr ) => {
 		{
-			$crate::reactivity_extra::bind(( $( $name, )* ), (move |( $( $name, )* )| $e))
+			Binding::new(( $( $name, )* ), (move |( $( $name, )* )| $e))
 		}
 	};
 }

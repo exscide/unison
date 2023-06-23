@@ -223,6 +223,14 @@ impl<T: ?Sized> Ref<T> {
 	pub unsafe fn get_mut_unchecked(&mut self) -> &mut T {
 		self.ptr.as_mut()
 	}
+
+	pub fn arena_id(&self) -> usize {
+		self.arena_id
+	}
+
+	pub fn as_ptr(&self) -> std::ptr::NonNull<T> {
+		self.ptr
+	}
 }
 
 

@@ -11,9 +11,7 @@ pub struct ComponentContainer<T: Component> {
 impl<T: Component> ComponentContainer<T> {
 	pub fn new(component: T, state: &mut State) -> Self {
 		let child = component.build(state);
-
-		let mut layout = Layout::new();
-		component.layout(&mut layout);
+		let layout = component.layout(state);
 
 		Self {
 			component,
@@ -32,7 +30,7 @@ pub trait ContainerLike {
 impl<T: Component> ContainerLike for ComponentContainer<T> {
 	fn draw<'a, B: Backend>(&self, state: &State, _parent_layout: &Layout, view: &mut B::View<'a>) {
 		view.apply_bounds(self.layout.get_margin(state).unwrap()); // TODO
-		self.component.draw::<B>(view);
+		self.component.draw::<B>(state, view);
 
 		view.apply_bounds(self.layout.get_padding(state).unwrap());
 		self.child.draw::<B>(state, &self.layout, view);

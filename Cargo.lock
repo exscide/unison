@@ -1251,6 +1251,7 @@ version = "0.1.0"
 dependencies = [
  "paste",
  "raw-window-handle",
+ "smallvec",
  "thiserror",
  "unison-backend",
  "unison-backend-wgpu",

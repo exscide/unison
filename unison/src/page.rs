@@ -46,9 +46,28 @@ impl<T: Component, B: Backend> DynPage<B> for Page<T> {
 	fn update_window(&self, win: &mut winit::window::Window) {
 		self.update_window(win)
 	}
+
+	fn take_redraw_request(&mut self) -> bool {
+		let r = self.state.request_redraw;
+		self.state.request_redraw = false;
+		r
+	}
+
+	fn emit_window_moved(&mut self, pos: (i32, i32)) {
+		self.state.set(self.state.window_pos, pos);
+	}
+
+	fn emit_window_focus_changed(&mut self, focused: bool) {
+		self.state.set(self.state.window_focused, focused);
+	}
 }
 
 pub(crate) trait DynPage<B: Backend> {
 	fn draw(&self, surface: &mut B::Surface, bcknd: &mut B);
 	fn update_window(&self, win: &mut winit::window::Window);
+
+	fn take_redraw_request(&mut self) -> bool;
+
+	fn emit_window_moved(&mut self, pos: (i32, i32));
+	fn emit_window_focus_changed(&mut self, focused: bool);
 }

@@ -7,8 +7,8 @@ pub trait Component {
 	type Child: ComponentLike + container::Containable;
 
 	fn build(&self, state: &mut State) -> Self::Child;
-	fn draw<'a, B: Backend>(&self, view: &mut B::View<'a>) {}
-	fn layout(&self, layout: &mut Layout) {}
+	fn draw<'a, B: Backend>(&self, state: &State, view: &mut B::View<'a>) {}
+	fn layout(&self, state: &mut State) -> Layout { Layout::default() }
 }
 
 

@@ -38,11 +38,26 @@ impl<B: Backend + 'static> App<B> {
 	}
 
 	fn handle_window_event(&mut self, id: WindowId, ev: WindowEvent) {
+		let vp = match self.viewports.get_mut(&id) {
+			Some(v) => v,
+			None => return,
+		};
+
 		match ev {
 			WindowEvent::Resized(size) => {
-				self.viewports.get_mut(&id).map(|v| v.reconfigure(&self.backend, (size.width.max(1), size.height.max(1))));
+				vp.reconfigure(&self.backend, (size.width.max(1), size.height.max(1)));
 			},
+			WindowEvent::Moved(p) => {
+				vp.page.emit_window_moved((p.x, p.y));
+			},
+			WindowEvent::Focused(f) => {
+				vp.page.emit_window_focus_changed(f);
+			}
 			_ => {}
+		}
+
+		if vp.page.take_redraw_request() {
+			vp.get_window().request_redraw();
 		}
 	}
 
@@ -72,7 +87,7 @@ impl<B: Backend + 'static> App<B> {
 struct Viewport<B: Backend> {
 	window: Window,
 	surface: B::Surface,
-	page: Box<dyn DynPage<B>>,
+	pub(crate) page: Box<dyn DynPage<B>>,
 }
 
 impl<B: Backend> Viewport<B> {
