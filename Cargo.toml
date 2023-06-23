@@ -1,0 +1,8 @@
+[workspace]
+members = [
+	"unison",
+	"unison-backend",
+	"unison-backend-wgpu",
+	"playground",
+]
+resolver = "2"

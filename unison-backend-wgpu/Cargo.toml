@@ -1,0 +1,13 @@
+[package]
+name = "unison-backend-wgpu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+unison-backend = { path = "../unison-backend" }
+
+wgpu = { version = "0.16.0", features = [ "spirv", "glsl" ] }
+bytemuck = { version = "1.13.1", features = [ "derive" ] }
+pollster = "0.3.0"
+ultraviolet = "0.9.1"
+winit = "0.28.5"
