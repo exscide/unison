@@ -11,3 +11,5 @@ bytemuck = { version = "1.13.1", features = [ "derive" ] }
 pollster = "0.3.0"
 ultraviolet = "0.9.1"
 winit = "0.28.5"
+smallvec = "1.10.0"
+indexmap = "1.9.3"

@@ -1,11 +1,16 @@
 use crate::*;
 use unison_backend::*;
+use wgpu::util::DeviceExt;
+
+use std::collections::HashMap;
 
 pub struct WgpuBackend {
 	pub instance: wgpu::Instance,
 	pub adapter: wgpu::Adapter,
 	pub device: wgpu::Device,
 	pub queue: wgpu::Queue,
+
+	pub image_cache: HashMap<TextureId, wgpu::Texture>,
 }
 
 impl WgpuBackend {
@@ -32,7 +37,9 @@ impl WgpuBackend {
 			instance,
 			adapter,
 			device,
-			queue
+			queue,
+
+			image_cache: HashMap::new()
 		}
 	}
 }
@@ -61,8 +68,35 @@ impl Backend for WgpuBackend {
 		view.surface.tex.take().map(|t| t.present());
 		view.surface.view.take();
 	}
+
+	fn upload_texture(&mut self, tex: &Texture) -> TextureId {
+		static TEX_ID: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+		let desc = wgpu::TextureDescriptor {
+			label: None,
+			size: wgpu::Extent3d { width: tex.width(), height: tex.height(), depth_or_array_layers: 1 },
+			mip_level_count: 1,
+			sample_count: 1,
+			dimension: wgpu::TextureDimension::D2,
+			format: texture_format_to_wgpu(tex.format()),
+			usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
+			view_formats: &[],
+		};
+		let wgpu_tex = self.device.create_texture_with_data(&self.queue, &desc, tex.as_bytes());
+
+		let id = TextureId::new(TEX_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+
+		self.image_cache.insert(id, wgpu_tex);
+
+		id
+	}
 }
 
+fn texture_format_to_wgpu(format: TextureFormat) -> wgpu::TextureFormat {
+	match format {
+		TextureFormat::Rgba32F => wgpu::TextureFormat::Rgba32Float,
+	}
+}
 
 pub struct WgpuSurface {
 	surface: wgpu::Surface,
@@ -140,7 +174,7 @@ pub struct WgpuView<'a> {
 	bcknd: &'a WgpuBackend,
 	surface: &'a mut WgpuSurface,
 	window_size: (u32, u32),
-	state: Vec<WgpuViewState>,
+	state: smallvec::SmallVec<[WgpuViewState; 8]>,
 }
 
 impl<'a> WgpuView<'a> {
@@ -150,7 +184,7 @@ impl<'a> WgpuView<'a> {
 
 		let window_size = surface.window_size;
 
-		let mut state = Vec::with_capacity(10);
+		let mut state = smallvec::SmallVec::new();
 		state.push(WgpuViewState::new(window_size));
 
 		Self {
@@ -162,11 +196,11 @@ impl<'a> WgpuView<'a> {
 	}
 
 	pub fn get_state(&self) -> &WgpuViewState {
-		self.state.last().unwrap()
+		self.state.last().unwrap() // state is never empty
 	}
 
 	pub fn get_state_mut(&mut self) -> &mut WgpuViewState {
-		self.state.last_mut().unwrap()
+		self.state.last_mut().unwrap() // state is never empty
 	}
 }
 
@@ -181,6 +215,10 @@ impl<'a> View for WgpuView<'a> {
 		if self.state.len() == 0 {
 			self.state.push(WgpuViewState::new(self.window_size))
 		}
+	}
+
+	fn reset_viewport(&mut self) {
+		*self.get_state_mut() = WgpuViewState::new(self.window_size);
 	}
 
 	fn viewport_size(&self) -> (u32, u32) {
@@ -209,9 +247,36 @@ impl<'a> View for WgpuView<'a> {
 		state.size.1 -= bounds.top + bounds.bottom;
 	}
 
-	fn fill(&mut self, color: Color) {
+	fn fill(&mut self, finish: Finish) {
 		let state = self.get_state();
-		self.surface.pipeline.queue_quad(self.bcknd, state.pos, state.size, color, self.surface.view.as_ref().unwrap()).unwrap()
+		let color = match finish {
+			Finish::Color(c) => c,
+			_ => todo!() // TODO
+		};
+		self.surface.pipeline.queue_quad(self.bcknd, (state.pos.0 as i32, state.pos.1 as i32), state.size, color, None, None, self.surface.view.as_ref().unwrap()).unwrap()
+	}
+
+	fn draw_rect(&mut self, pos: (i32, i32), size: (u32, u32), color: Color, tex: TextureId, tex_offset: (u32, u32)) {
+		let state = self.get_state();
+
+		let from_x = tex_offset.0 as f32 / 1024.0;
+		let from_y = tex_offset.1 as f32 / 1024.0;
+		let to_x = (tex_offset.0 + size.0) as f32 / 1024.0;
+		let to_y = (tex_offset.1 + size.1) as f32 / 1024.0;
+
+
+		let tex_coords = ([from_x, from_y], [from_x, to_y], [to_x, to_y], [to_x, from_y]);
+	
+
+		self.surface.pipeline.queue_quad(
+			self.bcknd,
+			(state.pos.0 as i32 + pos.0 as i32, state.pos.1 as i32 + pos.1 as i32),
+			size,
+			color,
+			Some(tex),
+			Some(tex_coords),
+			self.surface.view.as_ref().unwrap()
+		).unwrap()
 	}
 }
 

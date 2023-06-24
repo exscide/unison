@@ -24,21 +24,21 @@ impl<T: Component> ComponentContainer<T> {
 
 /// For types that may or may not be a [Container].
 pub trait ContainerLike {
-	fn draw<'a, B: Backend>(&self, state: &State, parent_layout: &Layout, view: &mut B::View<'a>);
+	fn draw<'a, B: Backend>(&self, state: &State, parent_layout: &Layout, view: &mut B::View<'a>, font_state: &mut FontState);
 }
 
 impl<T: Component> ContainerLike for ComponentContainer<T> {
-	fn draw<'a, B: Backend>(&self, state: &State, _parent_layout: &Layout, view: &mut B::View<'a>) {
+	fn draw<'a, B: Backend>(&self, state: &State, _parent_layout: &Layout, view: &mut B::View<'a>, font_state: &mut FontState) {
 		view.apply_bounds(self.layout.get_margin(state).unwrap()); // TODO
-		self.component.draw::<B>(state, view);
+		self.component.draw::<B>(state, view, font_state);
 
 		view.apply_bounds(self.layout.get_padding(state).unwrap());
-		self.child.draw::<B>(state, &self.layout, view);
+		self.child.draw::<B>(state, &self.layout, view, font_state);
 	}
 }
 
 impl ContainerLike for () {
-	fn draw<'a, B: Backend>(&self, _state: &State, _parent_layout: &Layout, _view: &mut B::View<'a>) {}
+	fn draw<'a, B: Backend>(&self, _state: &State, _parent_layout: &Layout, _view: &mut B::View<'a>, font_state: &mut FontState) {}
 }
 
 
@@ -49,9 +49,7 @@ pub trait Containable {
 	fn contain(self, state: &mut State) -> Self::Container;
 }
 
-impl<T: Component> Containable for T where
-	T::Child: Component,
-{
+impl<T: Component> Containable for T {
 	type Container = ComponentContainer<T>;
 
 	fn contain(self, state: &mut State) -> Self::Container {
@@ -100,8 +98,8 @@ impl<T: Component> ComponentTree<T> {
 		Some(unsafe { handler.container.as_mut() })
 	}
 
-	pub fn draw<'a, B: Backend>(&self, state: &State, view: &mut B::View<'a>) {
-		self.tree.draw::<B>(state, &Layout::new(), view);
+	pub fn draw<'a, B: Backend>(&self, state: &State, view: &mut B::View<'a>, font_state: &mut FontState) {
+		self.tree.draw::<B>(state, &Layout::new(), view, font_state);
 	}
 }
 
@@ -119,7 +117,7 @@ pub struct EventHandlerRef {
 macro_rules! impl_tuple_container {
 	($($name:ident),*) => {
 		impl< $($name: Component),* > container::ContainerLike for ($(container::ComponentContainer< $name >,)*) {
-			fn draw<'a, Ba: Backend>(&self, state: &State, parent_layout: &Layout, view: &mut Ba::View<'a>) {
+			fn draw<'a, Ba: Backend>(&self, state: &State, parent_layout: &Layout, view: &mut Ba::View<'a>, font_state: &mut FontState) {
 				#![allow(unused_assignments)]
 
 				#[allow(non_snake_case)]
@@ -128,7 +126,7 @@ macro_rules! impl_tuple_container {
 				let mut count = 0;
 				let mut spacers = 0;
 
-				let mut counts = Vec::new();
+				let mut counts = smallvec::SmallVec::<[u32; 16]>::new();
 
 				$(
 					{
@@ -171,7 +169,7 @@ macro_rules! impl_tuple_container {
 							Orientation::Horizontal => view.set_viewport_horizontal(offset, el_size),
 							Orientation::Vertical => view.set_viewport_vertical(offset, el_size),
 						}
-						$name.draw::<Ba>(state, parent_layout, view);
+						$name.draw::<Ba>(state, parent_layout, view, font_state);
 						view.restore();
 
 						cur_c += 1;

@@ -11,6 +11,7 @@ pub struct App<B: Backend + 'static = unison_backend_wgpu::WgpuBackend> {
 	viewports: HashMap<WindowId, Viewport<B>>,
 	window_queue: Vec<Box<dyn DynPage<B>>>,
 	backend: B,
+	font_state: FontState,
 }
 
 impl App<unison_backend_wgpu::WgpuBackend> {
@@ -19,6 +20,7 @@ impl App<unison_backend_wgpu::WgpuBackend> {
 			viewports: HashMap::new(),
 			window_queue: Vec::with_capacity(1),
 			backend: unison_backend_wgpu::WgpuBackend::new(),
+			font_state: FontState::new(),
 		}
 	}
 }
@@ -28,7 +30,8 @@ impl<B: Backend + 'static> App<B> {
 		Self {
 			viewports: HashMap::new(),
 			window_queue: Vec::with_capacity(1),
-			backend
+			backend,
+			font_state: FontState::new(),
 		}
 	}
 
@@ -63,12 +66,15 @@ impl<B: Backend + 'static> App<B> {
 
 	fn handle_redraw(&mut self, id: WindowId) {
 		if let Some(v) = self.viewports.get_mut(&id) {
-			v.draw(&mut self.backend);
+			v.draw(&mut self.backend, &mut self.font_state);
 		}
 	}
 
 	pub fn run(mut self) -> ! {
 		let ev_loop = EventLoop::new();
+
+		let font = self.font_state.find_font(Attrs::new(), 16.0);
+		self.font_state.upload_font(font, &mut self.backend);
 
 		self.viewports = self.window_queue.drain(..)
 			.map(|page| Viewport::new(&ev_loop, &self.backend, page).unwrap()) // TODO: get rid of unwrap
@@ -115,7 +121,7 @@ impl<B: Backend> Viewport<B> {
 		self.surface.reconfigure(bcknd, window_size);
 	}
 
-	pub fn draw(&mut self, bcknd: &mut B) {
-		self.page.draw(&mut self.surface, bcknd);
+	pub fn draw(&mut self, bcknd: &mut B, font_state: &mut FontState) {
+		self.page.draw(&mut self.surface, bcknd, font_state);
 	}
 }

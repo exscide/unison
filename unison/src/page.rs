@@ -25,9 +25,9 @@ impl<T: Component> Page<T> {
 		self
 	}
 
-	pub fn draw<B: Backend>(&self, surface: &mut B::Surface, bcknd: &mut B) {
+	pub fn draw<B: Backend>(&self, surface: &mut B::Surface, bcknd: &mut B, font_state: &mut FontState) {
 		let mut view = bcknd.create_view(surface);
-		self.tree.draw::<B>(&self.state, &mut view);
+		self.tree.draw::<B>(&self.state, &mut view, font_state);
 		bcknd.submit_view(view);
 	}
 
@@ -39,8 +39,8 @@ impl<T: Component> Page<T> {
 }
 
 impl<T: Component, B: Backend> DynPage<B> for Page<T> {
-	fn draw(&self, surface: &mut B::Surface, bcknd: &mut B) {
-		self.draw::<B>(surface, bcknd)
+	fn draw(&self, surface: &mut B::Surface, bcknd: &mut B, font_state: &mut FontState) {
+		self.draw::<B>(surface, bcknd, font_state)
 	}
 
 	fn update_window(&self, win: &mut winit::window::Window) {
@@ -63,7 +63,7 @@ impl<T: Component, B: Backend> DynPage<B> for Page<T> {
 }
 
 pub(crate) trait DynPage<B: Backend> {
-	fn draw(&self, surface: &mut B::Surface, bcknd: &mut B);
+	fn draw(&self, surface: &mut B::Surface, bcknd: &mut B, font_state: &mut FontState);
 	fn update_window(&self, win: &mut winit::window::Window);
 
 	fn take_redraw_request(&mut self) -> bool;

@@ -8,10 +8,11 @@ impl Component for A {
 
 	fn build(&self, _state: &mut State) -> Self::Child {}
 
-	fn draw<'a, B: Backend>(&self, _state: &State, view: &mut B::View<'a>) {
-		view.fill(Color(1.0, 1.0, 0.0, 1.0));
+	fn draw<'a, B: Backend>(&self, _state: &State, view: &mut B::View<'a>, font_state: &mut FontState) {
+		view.fill(Color(1.0, 1.0, 0.0, 1.0).into());
 	}
 }
+
 
 struct B;
 
@@ -20,8 +21,8 @@ impl Component for B {
 
 	fn build(&self, _state: &mut State) -> Self::Child {}
 
-	fn draw<'a, B: Backend>(&self, _state: &State, view: &mut B::View<'a>) {
-		view.fill(Color(0.0, 1.0, 1.0, 1.0));
+	fn draw<'a, B: Backend>(&self, _state: &State, view: &mut B::View<'a>, font_state: &mut FontState) {
+		view.fill(Color(0.0, 1.0, 1.0, 1.0).into());
 	}
 
 	fn layout(&self, _state: &mut State) -> Layout {
@@ -30,6 +31,7 @@ impl Component for B {
 		layout
 	}
 }
+
 
 struct Yote;
 impl Component for Yote {
@@ -54,12 +56,14 @@ impl Component for Yote {
 struct C;
 
 impl Component for C {
-	type Child = ();
+	type Child = Label;
 
-	fn build(&self, _state: &mut State) -> Self::Child {}
+	fn build(&self, _state: &mut State) -> Self::Child {
+		Label { text: "Yote Lorem ipsum dolor sit".to_owned() }
+	}
 
-	fn draw<'a, B: Backend>(&self, _state: &State, view: &mut B::View<'a>) {
-		view.fill(Color(1.0, 1.0, 1.0, 1.0));
+	fn draw<'a, B: Backend>(&self, _state: &State, view: &mut B::View<'a>, font_state: &mut FontState) {
+		view.fill(Color(1.0, 1.0, 1.0, 1.0).into());
 	}
 
 	fn layout(&self, _state: &mut State) -> Layout {
@@ -79,8 +83,8 @@ impl Component for MainView {
 		(Yote, C)
 	}
 
-	fn draw<'a, B: Backend>(&self, _state: &State, view: &mut B::View<'a>) {
-		view.fill(Color(1.0, 0.0, 1.0, 1.0));
+	fn draw<'a, B: Backend>(&self, _state: &State, view: &mut B::View<'a>, font_state: &mut FontState) {
+		view.fill(Color(1.0, 0.0, 1.0, 1.0).into());
 	}
 
 	fn layout(&self, state: &mut State) -> Layout {
@@ -100,6 +104,9 @@ impl Component for MainView {
 
 
 fn main() {
+	// let mut f = FontState::new();
+	// f.find_font(Attrs::new(), 18.0);
+
 	let app = App::new()
 		.with_window(Page::new(MainView));
 	app.run();
