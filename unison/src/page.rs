@@ -28,7 +28,7 @@ impl<T: Component> Page<T> {
 	pub fn draw<B: Backend>(&self, surface: &mut B::Surface, bcknd: &mut B, font_state: &mut FontState) {
 		let mut view = bcknd.create_view(surface);
 		self.tree.draw::<B>(&self.state, &mut view, font_state);
-		bcknd.submit_view(view);
+		view.submit();
 	}
 
 	pub fn update_window(&self, win: &mut winit::window::Window) {

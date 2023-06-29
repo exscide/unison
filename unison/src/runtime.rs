@@ -73,9 +73,6 @@ impl<B: Backend + 'static> App<B> {
 	pub fn run(mut self) -> ! {
 		let ev_loop = EventLoop::new();
 
-		let font = self.font_state.find_font(Attrs::new(), 16.0);
-		self.font_state.upload_font(font, &mut self.backend);
-
 		self.viewports = self.window_queue.drain(..)
 			.map(|page| Viewport::new(&ev_loop, &self.backend, page).unwrap()) // TODO: get rid of unwrap
 			.collect();

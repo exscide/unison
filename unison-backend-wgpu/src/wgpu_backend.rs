@@ -59,14 +59,8 @@ impl Backend for WgpuBackend {
 		WgpuSurface::new(self, unsafe { self.instance.create_surface(window) }.unwrap(), (size.width, size.height))
 	}
 
-	fn create_view<'a>(&'a self, surface: &'a mut Self::Surface) -> Self::View<'a> {
+	fn create_view<'a>(&'a mut self, surface: &'a mut Self::Surface) -> Self::View<'a> {
 		WgpuView::new(self, surface)
-	}
-
-	fn submit_view<'a>(&'a self, view: Self::View<'a>) {
-		view.surface.pipeline.flush(view.surface.view.as_ref().unwrap(), view.bcknd).unwrap();
-		view.surface.tex.take().map(|t| t.present());
-		view.surface.view.take();
 	}
 
 	fn upload_texture(&mut self, tex: &Texture) -> TextureId {
@@ -171,14 +165,14 @@ impl Surface<WgpuBackend> for WgpuSurface {
 
 
 pub struct WgpuView<'a> {
-	bcknd: &'a WgpuBackend,
+	bcknd: &'a mut WgpuBackend,
 	surface: &'a mut WgpuSurface,
 	window_size: (u32, u32),
 	state: smallvec::SmallVec<[WgpuViewState; 8]>,
 }
 
 impl<'a> WgpuView<'a> {
-	pub fn new(bcknd: &'a WgpuBackend, surface: &'a mut WgpuSurface) -> Self {
+	pub fn new(bcknd: &'a mut WgpuBackend, surface: &'a mut WgpuSurface) -> Self {
 		surface.ensure_surface_texture();
 		surface.pipeline.set_clear(Color(0.0, 0.0, 0.0, 1.0));
 
@@ -205,6 +199,8 @@ impl<'a> WgpuView<'a> {
 }
 
 impl<'a> View for WgpuView<'a> {
+	type B = WgpuBackend;
+
 	fn push(&mut self) {
 		self.state.push(self.state.last().unwrap().clone())
 	}
@@ -256,27 +252,42 @@ impl<'a> View for WgpuView<'a> {
 		self.surface.pipeline.queue_quad(self.bcknd, (state.pos.0 as i32, state.pos.1 as i32), state.size, color, None, None, self.surface.view.as_ref().unwrap()).unwrap()
 	}
 
-	fn draw_rect(&mut self, pos: (i32, i32), size: (u32, u32), color: Color, tex: TextureId, tex_offset: (u32, u32)) {
+	fn draw_rect(&mut self, pos: (i32, i32), size: (u32, u32), color: Color, tex: Option<TextureId>, tex_offset: Option<(u32, u32)>) {
 		let state = self.get_state();
 
-		let from_x = tex_offset.0 as f32 / 1024.0;
-		let from_y = tex_offset.1 as f32 / 1024.0;
-		let to_x = (tex_offset.0 + size.0) as f32 / 1024.0;
-		let to_y = (tex_offset.1 + size.1) as f32 / 1024.0;
+		let pos = (state.pos.0 as i32 + pos.0 as i32, state.pos.1 as i32 + pos.1 as i32);
 
-
-		let tex_coords = ([from_x, from_y], [from_x, to_y], [to_x, to_y], [to_x, from_y]);
+		let tex_coords = if let Some(tex_offset) = tex_offset {
+			let from_x = tex_offset.0 as f32 / 1024.0;
+			let from_y = tex_offset.1 as f32 / 1024.0;
+			let to_x = (tex_offset.0 + size.0) as f32 / 1024.0;
+			let to_y = (tex_offset.1 + size.1) as f32 / 1024.0;
 	
+			Some(([from_x, from_y], [from_x, to_y], [to_x, to_y], [to_x, from_y]))
+		} else {
+			None
+		};
 
 		self.surface.pipeline.queue_quad(
 			self.bcknd,
-			(state.pos.0 as i32 + pos.0 as i32, state.pos.1 as i32 + pos.1 as i32),
+			pos,
 			size,
 			color,
-			Some(tex),
-			Some(tex_coords),
+			tex,
+			tex_coords,
 			self.surface.view.as_ref().unwrap()
 		).unwrap()
+
+	}
+
+	fn submit(self) {
+		self.surface.pipeline.flush(self.surface.view.as_ref().unwrap(), self.bcknd).unwrap();
+		self.surface.tex.take().map(|t| t.present());
+		self.surface.view.take();
+	}
+
+	fn backend(&mut self) -> &mut Self::B {
+		self.bcknd
 	}
 }
 

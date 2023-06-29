@@ -1,4 +1,5 @@
-use image::{buffer::ConvertBuffer, ImageBuffer};
+use cosmic_text::fontdb::ID;
+use image::{ buffer::ConvertBuffer, ImageBuffer };
 
 use crate::*;
 
@@ -9,7 +10,7 @@ use std::collections::HashMap;
 pub struct FontState {
 	pub font_system: cosmic_text::FontSystem,
 	pub swash_cache: cosmic_text::SwashCache,
-	pub fonts: Vec<Font>,
+	pub fonts: HashMap<FontId, Font>,
 }
 
 impl FontState {
@@ -17,39 +18,33 @@ impl FontState {
 		Self {
 			font_system: cosmic_text::FontSystem::new(),
 			swash_cache: cosmic_text::SwashCache::new(),
-			fonts: Vec::new(),
+			fonts: HashMap::new(),
 		}
 	}
 
-	pub fn find_font(&mut self, attrs: cosmic_text::Attrs, size: f32) -> FontId {
-		let m = self.font_system.get_font_matches(attrs);
+	pub fn ensure_font<B: Backend>(&mut self, id: ID, size: f32, bcknd: &mut B) -> FontId {
+		// SAFETY: we're store it as a u32 to be able to hash and compare it.
+		let fid = FontId(id, unsafe { std::mem::transmute(size) });
 
-		let id = *m.first().unwrap(); // TODO
-		let font = self.font_system.get_font(id).unwrap();
+		if !self.fonts.contains_key(&fid) {
+			let f = self.font_system.get_font(id).unwrap();
 
-		// TODO
-		for (i, f) in self.fonts.iter().enumerate() {
-			if Arc::ptr_eq(&f.font, &font) && f.size == size {
-				return FontId(i);
+			let mut font = Font::new(f, size);
+			font.cache(self);
+
+			for page in &mut font.pages {
+				if page.tex_id.is_none() {
+					page.tex_id = Some(bcknd.upload_texture(&page.tex));
+				}
 			}
+
+			self.fonts.insert(fid, font);
 		}
-
-		let mut f = Font::new(font, size);
-
-		f.cache(self);
-
-		self.fonts.push(f);
-
-		FontId(self.fonts.len() - 1)
+		fid
 	}
 
-	pub fn upload_font<B: Backend>(&mut self, id: FontId, bcknd: &mut B) {
-		let font = &mut self.fonts[id.0];
-		for page in &mut font.pages {
-			if page.tex_id.is_none() {
-				page.tex_id = Some(bcknd.upload_texture(&page.tex));
-			}
-		}
+	pub fn get_font<B: Backend>(&mut self, id: FontId) -> &Font {
+		self.fonts.get(&id).unwrap()
 	}
 }
 
@@ -70,6 +65,10 @@ impl Font {
 		}
 	}
 
+	pub fn id(&self) -> ID {
+		self.font.id()
+	}
+
 	pub fn cache(&mut self, state: &mut FontState) {
 		self.pages.clear();
 		self.pages.push(CachePage::new());
@@ -85,7 +84,15 @@ impl Font {
 							self.pages.push(CachePage::new());
 						},
 						Some(v) => {
-							self.glyphs.insert(id, Glyph { page: self.pages.len() - 1, offset_x: v.0, offset_y: v.1, width: v.2, height: v.3, left: img.placement.left, top: img.placement.top });
+							self.glyphs.insert(id, Glyph {
+								page: self.pages.len() - 1,
+								offset_x: v.0,
+								offset_y: v.1,
+								width: img.placement.width,
+								height: img.placement.height,
+								left: img.placement.left,
+								top: img.placement.top
+							});
 							break;
 						}
 					}
@@ -110,7 +117,14 @@ fn save(cp: &CachePage) {
 	buf.save(String::from("cp.png")).unwrap()
 }
 
-pub struct FontId(usize);
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub struct FontId(pub ID, u32);
+
+impl FontId {
+	pub fn size(&self) -> f32 {
+		unsafe { std::mem::transmute(self.1) }
+	}
+}
 
 
 const PAGE_SIZE: u32 = 1024;
@@ -159,7 +173,7 @@ impl CachePage {
 		}
 	}
 
-	pub fn add_glyph(&mut self, glyph: &cosmic_text::SwashImage) -> Option<(u32, u32, u32, u32)> {
+	pub fn add_glyph(&mut self, glyph: &cosmic_text::SwashImage) -> Option<(u32, u32)> {
 		if glyph.placement.width > PAGE_SIZE || glyph.placement.height > PAGE_SIZE {
 			panic!()
 		}
@@ -173,7 +187,7 @@ impl CachePage {
 			return None;
 		}
 
-		let bounds = (self.cur_x, self.cur_y, glyph.placement.width, glyph.placement.height);
+		let bounds = (self.cur_x, self.cur_y);
 
 		self.copy_glyph(glyph);
 

@@ -2,17 +2,18 @@ pub mod types;
 use types::*;
 
 pub trait Backend: Default {
-	type View<'a>: View where Self: 'a;
+	type View<'a>: View<B = Self> where Self: 'a;
 	type Surface: Surface<Self> + 'static;
 
 	fn create_surface(&self, window: &winit::window::Window) -> Self::Surface;
-	fn create_view<'a>(&'a self, surface: &'a mut Self::Surface) -> Self::View<'a>;
-	fn submit_view<'a>(&'a self, view: Self::View<'a>);
+	fn create_view<'a>(&'a mut self, surface: &'a mut Self::Surface) -> Self::View<'a>;
 
 	fn upload_texture(&mut self, tex: &Texture) -> TextureId;
 }
 
 pub trait View {
+	type B: Backend;
+
 	/// Make a copy of the current state and push it onto the stack.
 	fn push(&mut self);
 	/// Restore the previous state.
@@ -35,7 +36,10 @@ pub trait View {
 	/// Fill the current viewport with a [Finish].
 	fn fill(&mut self, finish: Finish);
 
-	fn draw_rect(&mut self, pos: (i32, i32), size: (u32, u32), color: Color, tex: TextureId, tex_offset: (u32, u32));
+	fn draw_rect(&mut self, pos: (i32, i32), size: (u32, u32), color: Color, tex: Option<TextureId>, tex_offset: Option<(u32, u32)>);
+
+	fn submit(self);
+	fn backend(&mut self) -> &mut Self::B;
 }
 
 pub trait Surface<B: Backend> {

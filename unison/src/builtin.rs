@@ -20,21 +20,39 @@ impl Component for Label {
 
 			let s = view.viewport_size();
 			buf.set_size(s.0 as f32, s.1 as f32);
-			
-			// Add some text!
-			buf.set_text(&self.text, Attrs::new());
-			
-			// Perform shaping as desired
+
+			buf.set_text(&self.text, Attrs::new().family(cosmic_text::Family::Name("Times New Roman")));
+
 			buf.shape_until_scroll();
 		}
 
-		for run in buf.layout_runs() {
-			for glyph in run.glyphs.iter() {
-				let id = glyph.cache_key.glyph_id;
-				let font = &font_state.fonts[0];
-				if let Some((g, tex_id)) = font.get_glyph(id) {
+		for line in buf.layout_runs() {
+			let line_y = line.line_y as i32;
 
-					view.draw_rect((glyph.x as i32 + g.left, glyph.y_int as i32 - g.top + 16), (g.width, g.height), Color(0.0, 0.0, 0.0, 1.0), tex_id, (g.offset_x, g.offset_y))
+			for glyph in line.glyphs.iter() {
+				let glyph_id = glyph.cache_key.glyph_id;
+
+				let fid = font_state.ensure_font(
+					glyph.cache_key.font_id,
+					unsafe { std::mem::transmute(glyph.cache_key.font_size_bits) }, view.backend());
+				let font = font_state.get_font::<B>(fid);
+
+				if let Some((g, tex_id)) = font.get_glyph(glyph_id) {
+					// view.draw_rect(
+					// 	(glyph.x_int + g.left, line_y + glyph.y_int as i32 - g.top),
+					// 	(g.width, g.height),
+					// 	Color(1.0, 0.0, 1.0, 0.2),
+					// 	None,
+					// 	None
+					// );
+
+					view.draw_rect(
+						(glyph.x_int + g.left, line_y + glyph.y_int as i32 - g.top),
+						(g.width, g.height),
+						Color(0.0, 0.0, 0.0, 1.0),
+						Some(tex_id),
+						Some((g.offset_x, g.offset_y))
+					)
 				}
 			}
 		}
