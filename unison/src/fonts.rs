@@ -91,7 +91,12 @@ impl Font {
 								width: img.placement.width,
 								height: img.placement.height,
 								left: img.placement.left,
-								top: img.placement.top
+								top: img.placement.top,
+
+								is_colored: match img.content {
+									cosmic_text::SwashContent::Color => true,
+									_ => false,
+								}
 							});
 							break;
 						}
@@ -152,7 +157,7 @@ impl CachePage {
 		}
 	}
 
-	fn copy_glyph(&mut self, glyph: &cosmic_text::SwashImage) {
+	fn copy_glyph_mask(&mut self, glyph: &cosmic_text::SwashImage) {
 		for glyph_y in 0..glyph.placement.height {
 			for glyph_x in 0..glyph.placement.width {
 
@@ -170,6 +175,34 @@ impl CachePage {
 					b[tex_pos+channel*4+3] = val[3];
 				}
 			}
+		}
+	}
+
+	fn copy_glyph_color(&mut self, glyph: &cosmic_text::SwashImage) {
+		for glyph_y in 0..glyph.placement.height {
+			for glyph_x in 0..glyph.placement.width {
+
+				let tex_pos = ((self.cur_x + glyph_x) * 16 + (self.cur_y + glyph_y) * PAGE_SIZE * 16) as usize;
+				let b = self.tex.as_bytes_mut();
+
+				let glyph_pos = (glyph_x * 4 + glyph_y * glyph.placement.width * 4) as usize;
+				let g = &glyph.data;
+
+				for channel in 0usize..4 {
+					let col = (g[glyph_pos+channel] as f32 / 255.0).to_ne_bytes();
+					b[tex_pos+channel*4] = col[0];
+					b[tex_pos+channel*4+1] = col[1];
+					b[tex_pos+channel*4+2] = col[2];
+					b[tex_pos+channel*4+3] = col[3];
+				}
+			}
+		}
+	}
+
+	fn copy_glyph(&mut self, glyph: &cosmic_text::SwashImage) {
+		match glyph.content {
+			cosmic_text::SwashContent::Mask => self.copy_glyph_mask(glyph),
+			cosmic_text::SwashContent::Color | cosmic_text::SwashContent::SubpixelMask => self.copy_glyph_color(glyph),
 		}
 	}
 
@@ -212,5 +245,7 @@ pub struct Glyph {
 
 	pub left: i32,
 	pub top: i32,
+
+	pub is_colored: bool,
 }
 

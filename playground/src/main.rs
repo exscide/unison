@@ -59,7 +59,7 @@ impl Component for C {
 	type Child = Label;
 
 	fn build(&self, _state: &mut State) -> Self::Child {
-		Label { text: "Yote Lorem ipsum dolor sit".to_owned() }
+		Label { text: "On it differed repeated wandered required in. Then girl neat why yet knew rose spot. Moreover property we he kindness greatest be oh striking laughter. In me he at collecting affronting principles apartments. Has visitor law attacks pretend you calling own excited painted. Contented attending smallness it oh ye unwilling. Turned favour man two but lovers. Suffer should if waited common person little oh. Improved civility graceful sex few smallest screened settling. Likely active her warmly has. ❤️".to_owned() }
 	}
 
 	fn draw<'a, B: Backend>(&self, _state: &State, view: &mut B::View<'a>, font_state: &mut FontState) {
@@ -69,6 +69,7 @@ impl Component for C {
 	fn layout(&self, _state: &mut State) -> Layout {
 		let mut layout = Layout::new();
 		layout.set_flex(2);
+		layout.set_padding(Bounds::new(5, 5, 5, 5));
 		layout
 	}
 }

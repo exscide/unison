@@ -21,7 +21,12 @@ impl Component for Label {
 			let s = view.viewport_size();
 			buf.set_size(s.0 as f32, s.1 as f32);
 
-			buf.set_text(&self.text, Attrs::new().family(cosmic_text::Family::Name("Times New Roman")));
+			buf.set_text(
+				&self.text,
+				Attrs::new()
+					.family(cosmic_text::Family::Name("Segoe UI"))
+					.color(cosmic_text::Color::rgba(0, 0, 0, 1))
+			);
 
 			buf.shape_until_scroll();
 		}
@@ -37,7 +42,17 @@ impl Component for Label {
 					unsafe { std::mem::transmute(glyph.cache_key.font_size_bits) }, view.backend());
 				let font = font_state.get_font::<B>(fid);
 
+
 				if let Some((g, tex_id)) = font.get_glyph(glyph_id) {
+					let color = if g.is_colored {
+						Color(1.0, 1.0, 1.0, 1.0)
+					} else {
+						match glyph.color_opt {
+							Some(c) => Color(c.r() as f64, c.g() as f64, c.b() as f64, c.a() as f64),
+							None => Color(1.0, 1.0, 1.0, 1.0),
+						}
+					};
+
 					// view.draw_rect(
 					// 	(glyph.x_int + g.left, line_y + glyph.y_int as i32 - g.top),
 					// 	(g.width, g.height),
@@ -46,10 +61,12 @@ impl Component for Label {
 					// 	None
 					// );
 
+					let (new_x, _) = cosmic_text::SubpixelBin::new(glyph.x);
+
 					view.draw_rect(
-						(glyph.x_int + g.left, line_y + glyph.y_int as i32 - g.top),
+						(new_x + g.left, line_y + glyph.y_int as i32 - g.top),
 						(g.width, g.height),
-						Color(0.0, 0.0, 0.0, 1.0),
+						color,
 						Some(tex_id),
 						Some((g.offset_x, g.offset_y))
 					)
